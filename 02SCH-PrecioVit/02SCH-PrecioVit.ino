@@ -24,14 +24,31 @@ boolean okSD = 0, okNET = 0;
 boolean error = 0;
 String servidorAPI;
 
+String schAPI;
 String carnicareia;
+String iddispositivo;
 byte tipo = 1;
 String tiempo = "";
+bool debug = 0;
+
+String charola[30];
+String articulo[30];
+String nombre[30];
+float menudeo[29];
+
 
 void setup() {
 	Serial.begin(115200);
+	debug = debugActivar();
+	debug ? Serial.println("Debug activado!") : false;
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
-
+	obtenerParametros();
+	if (debug) {
+		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE");
+		for (int i = 0; i < 27; i++) {
+			Serial.println(String(i+1) + "\t" +articulo[i] + "\t\t\t" + nombre[i]);
+		}
+	}
 }
 
 
@@ -78,7 +95,7 @@ boolean iniciarMCU() {
 		schFile.close();
 		char JSONMessage[confLine.length() + 1];
 		confLine.toCharArray(JSONMessage, confLine.length() + 1);
-		Serial.println(JSONMessage);
+		debug ? Serial.println(JSONMessage) : false;
 
 		DynamicJsonDocument doc(1024);
 		DeserializationError error = deserializeJson(doc, JSONMessage);
@@ -316,6 +333,7 @@ String dato_a_JSON(String bfr_Tiempo[], float bfr_Temperatura[], int bfr_Humedad
 	paquete["fecha"] = DateTime.toString();;
 	paquete["tipo"] = tipo;
 
+
 	for (int i = 0; i < 30; i++)
 	{
 		sensor["hora"] = bfr_Tiempo[i];
@@ -329,3 +347,271 @@ String dato_a_JSON(String bfr_Tiempo[], float bfr_Temperatura[], int bfr_Humedad
 	return requestBody;
 }
 
+bool debugActivar() {
+	if (SD_validar()) {
+		File dataLog = SD.open("/debug", FILE_READ);
+		if (dataLog) {
+			debug ? Serial.println("El dispositivo esta en modo DEBUG.") : false;
+			dataLog.close();
+			ledOK();
+			return true;
+		}
+	}
+	return false;
+}
+
+boolean obtenerParametros() {
+	/*
+	Funcion responsable de obener precios oficiales SUCAHERSA
+	Toma como parametros las variables de micro SD del archivo charola.json 
+	*/
+
+	// Iniciando SD
+	Serial.println("Iniciando SD...");
+	okSD = 1;
+	SD.begin(SD_CS);
+	if (!SD.begin(SD_CS)) {
+		Serial.println("Error modulo SD!");
+		okSD = 0;
+	}
+	uint8_t cardType = SD.cardType();
+	if (cardType == CARD_NONE) {
+		Serial.println("Error tarjeta SD!");
+		okSD = 0;
+	}
+	if (!SD.begin(SD_CS)) {
+		Serial.println("ERROR - Falla en tarjeta SD!");
+		okSD = 0;
+	}
+	schFile = SD.open("/charolas.json", FILE_READ);
+	if (schFile) {
+		String confLine;
+		while (schFile.available()) {
+			confLine += schFile.readString();
+		}
+		schFile.close();
+		char JSONMessage[confLine.length() + 1];
+		confLine.toCharArray(JSONMessage, confLine.length() + 1);
+		debug ? Serial.println(JSONMessage) : false;
+
+		
+		DynamicJsonDocument doc(1024);
+		DeserializationError error = deserializeJson(doc, JSONMessage);
+		if (error) {
+			Serial.print("Error en configuraciones!");
+			Serial.println(error.c_str());
+			okSD = 0;
+		}
+
+
+		String textapi = doc["schAPI"];
+		schAPI = textapi;
+
+		String art1 = doc["charola01"];
+		articulo[0]= art1;
+		String nomb1 = doc["nombre01"];
+		nombre[0]= nomb1;
+
+		String art2 = doc["charola02"];
+		articulo[1] = art2;
+		String nomb2 = doc["nombre02"];
+		nombre[1] = nomb2;
+
+		String art3 = doc["charola03"];
+		articulo[2] = art3;
+		String nomb3 = doc["nombre03"];
+		nombre[2] = nomb3;
+
+		String art4 = doc["charola04"];
+		articulo[3] = art4;
+		String nomb4 = doc["nombre04"];
+		nombre[3] = nomb4;
+
+		String art5 = doc["charola05"];
+		articulo[4] = art5;
+		String nomb5 = doc["nombre05"];
+		nombre[4] = nomb5;
+
+		String art6 = doc["charola06"];
+		articulo[5] = art6;
+		String nomb6 = doc["nombre06"];
+		nombre[5] = nomb6;
+
+		String art7 = doc["charola07"];
+		articulo[6] = art7;
+		String nomb7 = doc["nombre07"];
+		nombre[6] = nomb7;
+
+		String art8 = doc["charola08"];
+		articulo[7] = art8;
+		String nomb8 = doc["nombre08"];
+		nombre[7] = nomb8;
+
+		String art9 = doc["charola09"];
+		articulo[8] = art9;
+		String nomb9 = doc["nombre09"];
+		nombre[8] = nomb9;
+
+		String art10 = doc["charola10"];
+		articulo[9] = art10;
+		String nomb10 = doc["nombre10"];
+		nombre[9] = nomb10;
+
+		String art11 = doc["charola11"];
+		articulo[10] = art11;
+		String nomb11 = doc["nombre11"];
+		nombre[10] = nomb11;
+
+		String art12 = doc["charola12"];
+		articulo[11] = art12;
+		String nomb12 = doc["nombre12"];
+		nombre[11] = nomb12;
+
+		String art13 = doc["charola13"];
+		articulo[12] = art13;
+		String nomb13 = doc["nombre13"];
+		nombre[12] = nomb13;
+
+		String art14 = doc["charola14"];
+		articulo[13] = art14;
+		String nomb14 = doc["nombre14"];
+		nombre[13] = nomb14;
+
+		String art15 = doc["charola15"];
+		articulo[14] = art15;
+		String nomb15 = doc["nombre15"];
+		nombre[14] = nomb15;
+
+		String art16 = doc["charola16"];
+		articulo[15] = art16;
+		String nomb16 = doc["nombre16"];
+		nombre[15] = nomb16;
+
+		String art17 = doc["charola17"];
+		articulo[16] = art17;
+		String nomb17 = doc["nombre17"];
+		nombre[16] = nomb17;
+
+		String art18 = doc["charola18"];
+		articulo[17] = art18;
+		String nomb18 = doc["nombre18"];
+		nombre[17] = nomb18;
+
+		String art19 = doc["charola19"];
+		articulo[18] = art19;
+		String nomb19 = doc["nombre19"];
+		nombre[18] = nomb19;
+
+		String art20 = doc["charola20"];
+		articulo[19] = art20;
+		String nomb20 = doc["nombre20"];
+		nombre[19] = nomb20;
+
+		String art21 = doc["charola21"];
+		articulo[20] = art21;
+		String nomb21 = doc["nombre21"];
+		nombre[20] = nomb21;
+
+		String art22 = doc["charola22"];
+		articulo[21] = art22;
+		String nomb22 = doc["nombre22"];
+		nombre[21] = nomb22;
+
+		String art23 = doc["charola23"];
+		articulo[22] = art23;
+		String nomb23 = doc["nombre23"];
+		nombre[22] = nomb23;
+
+		String art24 = doc["charola24"];
+		articulo[23] = art24;
+		String nomb24 = doc["nombre24"];
+		nombre[23] = nomb24;
+
+		String art25 = doc["charola25"];
+		articulo[24] = art25;
+		String nomb25 = doc["nombre25"];
+		nombre[24] = nomb25;
+
+		String art26 = doc["charola26"];
+		articulo[25] = art26;
+		String nomb26 = doc["nombre26"];
+		nombre[25] = nomb26;
+
+		String art27 = doc["charola27"];
+		articulo[26] = art27;
+		String nomb27 = doc["nombre27"];
+		nombre[26] = nomb27;
+		okSD = 1;
+	}
+	else {
+		Serial.println("Error al abrir configuración!");
+		return false;
+	}
+	return okNET;
+}
+
+int obtenerPrecio_API(String dato) {
+	/*
+	Funcion responsable de enviar paquetes formateados a servidor WebAPI mediante POST
+	Toma de los parametros globales la dirección del servidor WebAPI
+	Recibe como parametro una cadena de texto serializada en formato JSON
+	*/
+
+//				https://randomnerdtutorials.com/esp32-http-get-post-arduino/#http-get-2
+
+	boolean enviado = 0;
+	int intentos = 9;
+	String requestBody = dato;
+
+	while (!enviado || intentos > 0)
+	{
+		if (WiFi.status() == WL_CONNECTED) {
+
+			HTTPClient http;
+			http.begin(servidorAPI);
+			http.addHeader("Content-Type", "application/json");
+			int httpResponseCode = http.POST(requestBody);
+			delay(500);
+
+			if (httpResponseCode > 0) {
+				String response = http.getString();
+				Serial.println(httpResponseCode);
+				Serial.println(response);
+				http.end();
+				enviado = 1;
+				intentos = 0;
+				delay(1000);
+			}
+			else {
+				Serial.println("Error al enviar HTTP POST");
+				delay(500);
+				if (intentos > 1) {
+					Serial.println("Reintentando HTTP POST");
+					delay(500);
+					intentos--;
+				}
+				if (intentos == 1)
+				{
+					Serial.println("Almacenando en SD");
+					iniciarMCU();
+					intentos--;
+				}
+				http.end();
+			}
+		}
+		else {
+			Serial.println("WiFi no disponible!");
+			Serial.println("Error al enviar HTTP POST");
+			delay(500);
+			iniciarMCU();
+			delay(500);
+			intentos--;
+		}
+	}
+
+	return enviado ? 1 : 0;
+}
+
+void ledOK() {
+
+}
