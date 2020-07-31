@@ -34,7 +34,7 @@ bool debug = 0;
 String charola[30];
 String articulo[30];
 String nombre[30];
-float menudeo[29];
+String menudeo[29];
 
 
 void setup() {
@@ -44,10 +44,11 @@ void setup() {
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
 	obtenerParametros();
 	if (debug) {
-		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE");
+		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE			PRECIO");
 		for (int i = 0; i < 27; i++) {
-			Serial.println(String(i+1) + "\t" +articulo[i] + "\t\t\t" + nombre[i]);
+			Serial.println(String(i+1) + "\t" +articulo[i] + "\t\t\t" + nombre[i] + "\t\t\t" + menudeo[i]);
 		}
+		Serial.println("Todos los productos cargados con exito!");
 	}
 }
 
@@ -402,8 +403,6 @@ boolean obtenerParametros() {
 			Serial.println(error.c_str());
 			okSD = 0;
 		}
-
-
 		String textapi = doc["schAPI"];
 		schAPI = textapi;
 
@@ -542,6 +541,9 @@ boolean obtenerParametros() {
 		String nomb27 = doc["nombre27"];
 		nombre[26] = nomb27;
 		okSD = 1;
+
+		for (int i = 0; i < 27; i++)
+			menudeo[i] = obtenerPrecio_API(articulo[i]);
 	}
 	else {
 		Serial.println("Error al abrir configuración!");
@@ -550,7 +552,7 @@ boolean obtenerParametros() {
 	return okNET;
 }
 
-int obtenerPrecio_API(String dato) {
+String obtenerPrecio_API(String dato) {
 	/*
 	Funcion responsable de enviar paquetes formateados a servidor WebAPI mediante POST
 	Toma de los parametros globales la dirección del servidor WebAPI
@@ -561,20 +563,27 @@ int obtenerPrecio_API(String dato) {
 
 	boolean enviado = 0;
 	int intentos = 9;
-	String requestBody = dato;
+	String response;
+	String precio;
+	String producto;
+	dato.replace(" ", "%20");
+	int httpResponseCode;
+	String schServer = schAPI + dato;
+	debug ? Serial.println("GET: " + schServer) : false;
+
 
 	while (!enviado || intentos > 0)
 	{
 		if (WiFi.status() == WL_CONNECTED) {
 
 			HTTPClient http;
-			http.begin(servidorAPI);
-			http.addHeader("Content-Type", "application/json");
-			int httpResponseCode = http.POST(requestBody);
+			http.begin(schServer);
+			//String payload = "{}";
+			httpResponseCode = http.GET(); 
 			delay(500);
 
 			if (httpResponseCode > 0) {
-				String response = http.getString();
+				response = http.getString();
 				Serial.println(httpResponseCode);
 				Serial.println(response);
 				http.end();
@@ -609,7 +618,35 @@ int obtenerPrecio_API(String dato) {
 		}
 	}
 
-	return enviado ? 1 : 0;
+	if (httpResponseCode == 200) {
+		DynamicJsonDocument respuesta(1024);
+		DeserializationError error = deserializeJson(respuesta, response);
+		if (error) {
+			Serial.print("Error en configuraciones!");
+			Serial.println(error.c_str());
+			okSD = 0;
+		}
+		String textResponse = respuesta["response"];
+		Serial.println(textResponse);
+
+		error = deserializeJson(respuesta, textResponse);
+		if (error) {
+			Serial.print("Error en configuraciones!");
+			Serial.println(error.c_str());
+			okSD = 0;
+		}
+		String Menudeo = respuesta["Menudeo"];
+		precio = "$ " + String(Menudeo.toFloat());
+		Serial.println("El precio es: " + precio);
+
+
+	}
+	else {
+		Serial.println("Error al abrir configuración!");
+		return "No disponible";
+	}
+
+	return httpResponseCode==200 ? precio : "No disponible";
 }
 
 void ledOK() {
