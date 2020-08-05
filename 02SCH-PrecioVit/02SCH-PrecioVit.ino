@@ -16,6 +16,7 @@
 #include <WiFi.h>
 // Librerias para API
 #include <HTTPClient.h>
+#include <DHT.h>
 
 #define SD_CS 5						// Define CS pin para modulo SD
 
@@ -31,17 +32,41 @@ byte tipo = 1;
 String tiempo = "";
 bool debug = 0;
 
+int ledRojo = 4;
+int ledVerde = 2;
+int ledAzul = 15;
+
 String charola[30];
 String articulo[30];
 String nombre[30];
 String menudeo[29];
 
 
+#define DHTPIN1		14
+#define DHTPIN2		27
+#define DHTPIN3		26
+#define DHTTYPE    DHT22
+DHT dht1(DHTPIN1, DHTTYPE);
+DHT dht2(DHTPIN2, DHTTYPE);
+DHT dht3(DHTPIN3, DHTTYPE);
+int   h1, h2, h3;  //Humedad
+float t1, t2, t3;  //Temperatura
+
+
 void setup() {
+	pinMode(ledRojo, OUTPUT);
+	pinMode(ledVerde, OUTPUT);
+	pinMode(ledAzul, OUTPUT);
+	ledFalla();
+	ledComunicacion();
+	dht1.begin();
+	dht2.begin();
+	dht3.begin();
 	Serial.begin(115200);
 	debug = debugActivar();
 	debug ? Serial.println("Debug activado!") : false;
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
+	ledOK();
 	obtenerParametros();
 	if (debug) {
 		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE			PRECIO");
@@ -50,6 +75,7 @@ void setup() {
 		}
 		Serial.println("Todos los productos cargados con exito!");
 	}
+	leerTemperatura();
 }
 
 
@@ -579,7 +605,8 @@ String obtenerPrecio_API(String dato) {
 			HTTPClient http;
 			http.begin(schServer);
 			//String payload = "{}";
-			httpResponseCode = http.GET(); 
+			httpResponseCode = http.GET();
+			ledComunicacion();
 			delay(500);
 
 			if (httpResponseCode > 0) {
@@ -645,10 +672,76 @@ String obtenerPrecio_API(String dato) {
 		Serial.println("Error al abrir configuración!");
 		return "No disponible";
 	}
-
+	httpResponseCode == 200 ? ledComunicacion() : ledFalla();
 	return httpResponseCode==200 ? precio : "No disponible";
 }
 
 void ledOK() {
+	digitalWrite(ledRojo, LOW);
+	digitalWrite(ledVerde, LOW);
+	digitalWrite(ledAzul, LOW);
+	for (int i = 1; i <= 3; i++) {
+		digitalWrite(ledVerde, HIGH);
+		delay(150);
+		digitalWrite(ledVerde, LOW);
+		delay(100);
+	}
+	digitalWrite(ledVerde, LOW);
+}
+void ledFalla() {
+	digitalWrite(ledRojo, LOW);
+	digitalWrite(ledVerde, LOW);
+	digitalWrite(ledAzul, LOW);
+	for (int i = 1; i <= 3; i++) {
+		digitalWrite(ledRojo, HIGH);
+		delay(150);
+		digitalWrite(ledRojo, LOW);
+		delay(100);
+	}
+	digitalWrite(ledRojo, LOW);
+}
 
+void ledComunicacion() {
+	digitalWrite(ledRojo, LOW);
+	digitalWrite(ledVerde, LOW);
+	digitalWrite(ledAzul, LOW);
+	for (int i = 1; i <= 5; i++) {
+		digitalWrite(ledAzul, HIGH);
+		delay(100);
+		digitalWrite(ledAzul, LOW);
+		delay(50);
+	}
+	digitalWrite(ledAzul, LOW);
+}
+
+bool leerTemperatura() {
+	bool estatus = 0;
+	h1 = dht1.readHumidity();
+	t1 = dht1.readTemperature();
+	h2 = dht2.readHumidity();
+	t2 = dht2.readTemperature();
+	h3 = dht3.readHumidity();
+	t3 = dht3.readTemperature();
+	if (isnan(h1) || isnan(t1)) {
+		debug ? Serial.println("No se peuede leer temperatura/humedad sensor 01") : false;
+		estatus = 0;
+		delay(2000);
+	}
+	if (isnan(h2) || isnan(t2)) {
+		debug ? Serial.println("No se peuede leer temperatura/humedad sensor 02") : false;
+		estatus = 0;
+		delay(2000);
+	}
+	if (isnan(h3) || isnan(t3)) {
+		debug ? Serial.println("No se peuede leer temperatura/humedad sensor 03") : false;
+		estatus = 0;
+		delay(2000);
+	}
+	debug ? Serial.println("Tiempo		Humedad") : false;
+	debug ? Serial.println(String(t1) + " °C\t\t" + String(h1) + " %") : false;
+	debug ? Serial.println(String(t2) + " °C\t\t" + String(h2) + " %") : false;
+	debug ? Serial.println(String(t3) + " °C\t\t" + String(h3) + " %") : false;
+	estatus = 1;
+	estatus ? ledOK() : ledFalla();
+	return estatus;
 }
