@@ -52,6 +52,9 @@ DHT dht3(DHTPIN3, DHTTYPE);
 int   h1, h2, h3;  //Humedad
 float t1, t2, t3;  //Temperatura
 
+unsigned long millis_previos_precios = 0, millis_previos_activo = 0;
+int inervalo_precios = 3600000, inervalo_activo = 60000;
+
 
 void setup() {
 	pinMode(ledRojo, OUTPUT);
@@ -80,6 +83,20 @@ void setup() {
 
 
 void loop() {
+
+	unsigned long millies_atcuales_activo = millis();
+	if (millies_atcuales_activo - millis_previos_activo > inervalo_activo) {
+		millis_previos_activo = millies_atcuales_activo;
+		debug ? Serial.println("Ha pasado un minuto!") : false;
+		leerTemperatura();
+	}
+
+	unsigned long millies_atcuales_precios = millis();
+	if (millies_atcuales_precios - millis_previos_precios > inervalo_precios) {
+		millis_previos_precios = millies_atcuales_precios;
+		debug ? Serial.println("Han pasado 60 minutos!") : false;
+		obtenerParametros();
+	}
 
 }
 
