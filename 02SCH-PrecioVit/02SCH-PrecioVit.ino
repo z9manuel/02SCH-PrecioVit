@@ -5,7 +5,6 @@
  Programa para despliegue de pracios en Vitrinas SUCAHERSA
 */
 
-
 // Librreias SD
 #include "FS.h"
 #include "SD.h"
@@ -19,6 +18,12 @@
 #include <DHT.h>
 
 #define SD_CS 5						// Define CS pin para modulo SD
+#define PUERTA1 25
+#define PUERTA2 33
+#define PUERTA3 32
+#define PUERTA4 35
+bool p1Abierta = 0, p2Abierta = 0, p3Abierta = 0, p4Abierta = 0;
+unsigned long millis_previos_p1 = 0, millis_previos_p2 = 0, millis_previos_p3 = 0, millis_previos_p4 = 0;
 
 File schFile;
 boolean okSD = 0, okNET = 0;
@@ -41,7 +46,7 @@ String articulo[30];
 String nombre[30];
 String menudeo[29];
 
-
+#define BUZZER		12
 #define DHTPIN1		14
 #define DHTPIN2		27
 #define DHTPIN3		26
@@ -52,6 +57,8 @@ DHT dht3(DHTPIN3, DHTTYPE);
 int   h1, h2, h3;  //Humedad
 float t1, t2, t3;  //Temperatura
 
+
+
 unsigned long millis_previos_precios = 0, millis_previos_activo = 0;
 int inervalo_precios = 3600000, inervalo_activo = 60000;
 
@@ -60,6 +67,11 @@ void setup() {
 	pinMode(ledRojo, OUTPUT);
 	pinMode(ledVerde, OUTPUT);
 	pinMode(ledAzul, OUTPUT);
+	pinMode(BUZZER, OUTPUT);
+	pinMode(PUERTA1, INPUT);
+	pinMode(PUERTA2, INPUT);
+	pinMode(PUERTA3, INPUT);
+	pinMode(PUERTA4, INPUT);
 	ledFalla();
 	ledComunicacion();
 	dht1.begin();
@@ -70,6 +82,8 @@ void setup() {
 	debug ? Serial.println("Debug activado!") : false;
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
 	ledOK();
+
+	/*    QUITAR ESTE COMENTARIO
 	obtenerParametros();
 	if (debug) {
 		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE			PRECIO");
@@ -78,11 +92,14 @@ void setup() {
 		}
 		Serial.println("Todos los productos cargados con exito!");
 	}
+	*/
 	leerTemperatura();
 }
 
 
 void loop() {
+
+	revisarPuertas();
 
 	unsigned long millies_atcuales_activo = millis();
 	if (millies_atcuales_activo - millis_previos_activo > inervalo_activo) {
@@ -99,6 +116,7 @@ void loop() {
 	}
 
 }
+
 
 boolean iniciarMCU() {
 	/*
@@ -705,6 +723,7 @@ void ledOK() {
 	}
 	digitalWrite(ledVerde, LOW);
 }
+
 void ledFalla() {
 	digitalWrite(ledRojo, LOW);
 	digitalWrite(ledVerde, LOW);
@@ -761,4 +780,77 @@ bool leerTemperatura() {
 	estatus = 1;
 	estatus ? ledOK() : ledFalla();
 	return estatus;
+}
+
+void beep(int nivel) {
+	int tiempo = nivel * 100;
+	Serial.println("En Beep " + String(nivel));
+	for (int i = 0; i < (3 * nivel); i++) {
+		digitalWrite(ledRojo, HIGH);
+		digitalWrite(BUZZER, HIGH);
+		delay(tiempo);
+		digitalWrite(ledRojo, LOW);
+		digitalWrite(BUZZER, LOW);
+		delay(tiempo);
+	}
+}
+
+bool revisarPuertas() {
+	bool p1, p2, p3, p4;
+
+	/*
+	bool p1Abierta = 0, p2Abierta = 0, p3Abierta = 0, p4Abierta = 0;;
+	unsigned long millis_previos_p1 = 0, millis_previos_p2 = 0, millis_previos_p3 = 0, millis_previos_p4 = 0;
+	int inervalo_precios = 3600000, inervalo_activo = 60000;
+	*/
+
+	unsigned long deltaP1 = 0, deltaP2 = 0, deltaP3 = 0, deltaP4 = 0;
+	unsigned long millies_atcuales_p1 = millis(), millies_atcuales_p2 = millis(), millies_atcuales_p3 = millis(), millies_atcuales_p4 = millis();
+
+	p1 = digitalRead(PUERTA1);
+	p2 = digitalRead(PUERTA2);
+	p3 = digitalRead(PUERTA3);
+	p4 = digitalRead(PUERTA4);
+
+	debug ? Serial.println("Estado de puertas.") : false;
+	debug ? Serial.println(p1 ? "P1 CERRADO" : "P1 ABIERTO") : false;
+	debug ? Serial.println(p2 ? "P2 CERRADO" : "P2 ABIERTO") : false;
+	debug ? Serial.println(p3 ? "P3 CERRADO" : "P3 ABIERTO") : false;
+	debug ? Serial.println(p4 ? "P4 CERRADO" : "P4 ABIERTO") : false;
+
+	!p1 ? deltaP1 = (millies_atcuales_p1 - millis_previos_p1) / 1000 : millis_previos_p1 = millies_atcuales_p1;
+	debug ? Serial.println("Segundos P1 abierta: " + String(deltaP1)) : false;
+	!p2 ? deltaP2 = (millies_atcuales_p2 - millis_previos_p2) / 1000 : millis_previos_p2 = millies_atcuales_p2;
+	debug ? Serial.println("Segundos P2 abierta: " + String(deltaP2)) : false;
+	!p3 ? deltaP3 = (millies_atcuales_p3 - millis_previos_p3) / 1000 : millis_previos_p3 = millies_atcuales_p3;
+	debug ? Serial.println("Segundos P3 abierta: " + String(deltaP3)) : false;
+	!p4 ? deltaP4 = (millies_atcuales_p4 - millis_previos_p4) / 1000 : millis_previos_p4 = millies_atcuales_p4;
+	debug ? Serial.println("Segundos P4 abierta: " + String(deltaP4)) : false;
+
+	p1Abierta = p1;
+	p2Abierta = p2;
+	p3Abierta = p3;
+	p4Abierta = p4;
+	
+	deltaP1 == 0 ? deltaP1++ : false;
+	deltaP2 == 0 ? deltaP2++ : false;
+	deltaP3 == 0 ? deltaP3++ : false;
+	deltaP4 == 0 ? deltaP4++ : false;
+
+	if ((deltaP1 % 300 == 0) || (deltaP2 % 300 == 0) || (deltaP3 % 300 == 0) || (deltaP4 % 300 == 0))
+		beep(5);
+	else if ((deltaP1 % 240 == 0) || (deltaP2 % 240 == 0) || (deltaP3 % 240 == 0) || (deltaP4 % 240 == 0))
+		beep(4);
+	else if ((deltaP1 % 180 == 0) || (deltaP2 % 180 == 0) || (deltaP3 % 180 == 0) || (deltaP4 % 180 == 0))
+		beep(3);
+	else if ((deltaP1 % 120 == 0) || (deltaP2 % 120 == 0) || (deltaP3 % 120 == 0) || (deltaP4 % 120 == 0))
+		beep(2);
+	else if ((deltaP1 % 60 == 0) || (deltaP2 % 60 == 0) || (deltaP3 % 60 == 0) || (deltaP4 % 60 == 0)) {
+		beep(1);
+		if ((deltaP1 > 305) || (deltaP2 > 305) || (deltaP3 > 305) || (deltaP4 > 305))
+			beep(5);
+	}
+		
+
+	return 1;
 }
