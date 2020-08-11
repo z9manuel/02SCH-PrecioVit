@@ -13,6 +13,7 @@
 #include <ArduinoJson.h>
 #include <DateTime.h>
 #include <WiFi.h>
+#include <PubSubClient.h>
 // Librerias para API
 #include <HTTPClient.h>
 #include <DHT.h>
@@ -29,12 +30,18 @@ File schFile;
 boolean okSD = 0, okNET = 0;
 boolean error = 0;
 String servidorAPI;
+String servidorMQTT;
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 String schAPI;
 String carnicareia;
 String iddispositivo;
 byte tipo = 1;
 String tiempo = "";
+String topTemp1, topTemp2, topTemp3;
+String topHum1, topHum2, topHum3;
+String topPue1, topPue2, topPue3, topPue4;
 bool debug = 0;
 
 int ledRojo = 4;
@@ -83,7 +90,7 @@ void setup() {
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
 	ledOK();
 
-	/*    QUITAR ESTE COMENTARIO
+	/*    QUITAR ESTE COMENTARIO*/
 	obtenerParametros();
 	if (debug) {
 		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE			PRECIO");
@@ -92,7 +99,7 @@ void setup() {
 		}
 		Serial.println("Todos los productos cargados con exito!");
 	}
-	*/
+	
 	leerTemperatura();
 }
 
@@ -180,6 +187,21 @@ boolean iniciarMCU() {
 		contrred = textpasswifi;
 		apiser = textapi;
 		cronos = textntp;
+		String mosquitto = doc["MQTT"];
+		String temp1 = doc["topTem1"];
+		String temp2 = doc["topTem2"];
+		String temp3 = doc["topTem3"];
+		String hume1 = doc["topHum1"];
+		String hume2 = doc["topHum2"];
+		String hume3 = doc["topHum3"];
+		String puerta1 = doc["topPue1"];
+		String puerta2 = doc["topPue2"];
+		String puerta3 = doc["topPue3"];
+		String puerta4 = doc["topPue4"];
+		servidorMQTT = mosquitto;
+		topTemp1 = temp1;  topTemp2 = temp2; topTemp3 = temp3;
+		topHum1 = hume1; topHum2 = hume2; topHum3= hume3;
+		topPue1 = puerta1; topPue2 = puerta2; topPue3 = puerta3; topPue4 = puerta4;
 		okSD = 1;
 	}
 	else {
@@ -247,6 +269,16 @@ boolean iniciarMCU() {
 		DateTime.forceUpdate();
 		Serial.print("Tiempo: ");
 		Serial.println(DateTime.toString());
+
+		char mqtt[servidorMQTT.length() + 1];
+		servidorMQTT.toCharArray(mqtt, servidorMQTT.length() + 1);
+		debug ? Serial.println(mqtt) : false;
+		client.setServer(mqtt, 1883);
+		
+		client.connect("SUCAHERSA");
+		client.setKeepAlive(180);
+		Serial.println(client.state());
+		delay(2000);
 	}
 	return okNET;
 }
@@ -779,6 +811,57 @@ bool leerTemperatura() {
 	debug ? Serial.println(String(t3) + " °C\t\t" + String(h3) + " %") : false;
 	estatus = 1;
 	estatus ? ledOK() : ledFalla();
+
+	/*
+	char p1String[8];
+	dtostrf(p1Abierta, 1, 2, p1String);
+	char puert1[topPue1.length() + 1];
+	topPue1.toCharArray(puert1, topPue1.length() + 1);
+	client.publish(puert1, p1String);
+	*/
+
+	if (!client.connected()) {
+		reconnect();
+	}
+	client.loop();
+
+	char t1String[8];
+	dtostrf(t1, 1, 2, t1String);
+	char tempe1[topTemp1.length() + 1];
+	topTemp1.toCharArray(tempe1, topTemp1.length() + 1);
+	client.publish(tempe1, t1String);
+
+	char t2String[8];
+	dtostrf(t2, 1, 2, t2String);
+	char tempe2[topTemp2.length() + 1];
+	topTemp2.toCharArray(tempe2, topTemp2.length() + 1);
+	client.publish(tempe2, t2String);
+
+	char t3String[8];
+	dtostrf(t3, 1, 2, t3String);
+	char tempe3[topTemp3.length() + 1];
+	topTemp3.toCharArray(tempe3, topTemp3.length() + 1);
+	client.publish(tempe3, t1String);
+
+	char h1String[8];
+	dtostrf(h1, 1, 2, h1String);
+	char humed1[topHum1.length() + 1];
+	topHum1.toCharArray(humed1, topHum1.length() + 1);
+	client.publish(humed1, h1String);
+
+	char h2String[8];
+	dtostrf(h2, 1, 2, h2String);
+	char humed2[topHum2.length() + 1];
+	topHum2.toCharArray(humed2, topHum2.length() + 1);
+	client.publish(humed2, h2String);
+
+	char h3String[8];
+	dtostrf(h3, 1, 2, h3String);
+	char humed3[topHum3.length() + 1];
+	topHum3.toCharArray(humed3, topHum3.length() + 1);
+	client.publish(humed3, h3String);
+
+
 	return estatus;
 }
 
@@ -851,6 +934,67 @@ bool revisarPuertas() {
 			beep(5);
 	}
 		
+	if (!client.connected()) {
+		reconnect();
+	}
+	client.loop();
+
+	char p1String[8];
+	dtostrf(p1Abierta, 1, 2, p1String);
+	char puert1[topPue1.length() + 1];
+	topPue1.toCharArray(puert1, topPue1.length() + 1);
+	client.publish(puert1, p1String);
+
+	char p2String[8];
+	dtostrf(p2Abierta, 1, 2, p2String);
+	char puert2[topPue2.length() + 1];
+	topPue2.toCharArray(puert2, topPue2.length() + 1);
+	client.publish(puert2, p2String);
+
+	char p3String[8];
+	dtostrf(p3Abierta, 1, 2, p3String);
+	char puert3[topPue3.length() + 1];
+	topPue3.toCharArray(puert3, topPue3.length() + 1);
+	client.publish(puert3, p3String);
+
+	char p4String[8];
+	dtostrf(p4Abierta, 1, 2, p4String);
+	char puert4[topPue4.length() + 1];
+	topPue4.toCharArray(puert4, topPue4.length() + 1);
+	client.publish(puert4, p4String);
 
 	return 1;
+}
+
+
+void reconnect() {
+	int i = 0;
+	Serial.println("Iniciando reconexión MQTT...");
+	char mqtt[servidorMQTT.length() + 1];
+	servidorMQTT.toCharArray(mqtt, servidorMQTT.length() + 1);
+	debug ? Serial.println(mqtt) : false;
+	client.setServer(mqtt, 1883);
+
+	client.connect("SUCAHERSA");
+	client.setKeepAlive(180);
+	Serial.println(client.state());
+
+	while (!client.connected()) {
+		Serial.print("Intentando enlazar MQTT...");
+		if (client.connect("SUCAHERSA")) {
+			Serial.println("connected");
+		}
+		else {
+			client.disconnect();
+			Serial.println(client.state());
+			Serial.print("failed, rc=");
+			Serial.println(client.state());
+			Serial.println(" intentando en 5 seconds");
+			client.disconnect();
+			client.connect("SUCAHERSA");
+			Serial.println(client.state());
+			i++;
+			delay(1000);
+		}
+	}
 }
