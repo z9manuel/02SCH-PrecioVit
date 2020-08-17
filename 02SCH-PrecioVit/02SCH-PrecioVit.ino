@@ -90,7 +90,7 @@ void setup() {
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
 	ledOK();
 
-	/*    QUITAR ESTE COMENTARIO*/
+	/*    QUITAR ESTE COMENTARIO
 	obtenerParametros();
 	if (debug) {
 		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE			PRECIO");
@@ -99,6 +99,7 @@ void setup() {
 		}
 		Serial.println("Todos los productos cargados con exito!");
 	}
+	*/
 	
 	leerTemperatura();
 }
@@ -277,6 +278,7 @@ boolean iniciarMCU() {
 		
 		client.connect("SUCAHERSA");
 		client.setKeepAlive(180);
+		Serial.print("Estado de MQTT de arranque: ");
 		Serial.println(client.state());
 		delay(2000);
 	}
@@ -812,56 +814,51 @@ bool leerTemperatura() {
 	estatus = 1;
 	estatus ? ledOK() : ledFalla();
 
-	/*
-	char p1String[8];
-	dtostrf(p1Abierta, 1, 2, p1String);
-	char puert1[topPue1.length() + 1];
-	topPue1.toCharArray(puert1, topPue1.length() + 1);
-	client.publish(puert1, p1String);
-	*/
+	Serial.print("Estado de MQTT: ");
+	Serial.println(client.connected());
 
-	if (!client.connected()) {
+	if (client.state() != 0) {
 		reconnect();
 	}
-	client.loop();
 
-	char t1String[8];
-	dtostrf(t1, 1, 2, t1String);
-	char tempe1[topTemp1.length() + 1];
-	topTemp1.toCharArray(tempe1, topTemp1.length() + 1);
-	client.publish(tempe1, t1String);
+	if (client.state() == 0) {
+		char t1String[8];
+		dtostrf(t1, 1, 2, t1String);
+		char tempe1[topTemp1.length() + 1];
+		topTemp1.toCharArray(tempe1, topTemp1.length() + 1);
+		client.publish(tempe1, t1String);
 
-	char t2String[8];
-	dtostrf(t2, 1, 2, t2String);
-	char tempe2[topTemp2.length() + 1];
-	topTemp2.toCharArray(tempe2, topTemp2.length() + 1);
-	client.publish(tempe2, t2String);
+		char t2String[8];
+		dtostrf(t2, 1, 2, t2String);
+		char tempe2[topTemp2.length() + 1];
+		topTemp2.toCharArray(tempe2, topTemp2.length() + 1);
+		client.publish(tempe2, t2String);
 
-	char t3String[8];
-	dtostrf(t3, 1, 2, t3String);
-	char tempe3[topTemp3.length() + 1];
-	topTemp3.toCharArray(tempe3, topTemp3.length() + 1);
-	client.publish(tempe3, t1String);
+		char t3String[8];
+		dtostrf(t3, 1, 2, t3String);
+		char tempe3[topTemp3.length() + 1];
+		topTemp3.toCharArray(tempe3, topTemp3.length() + 1);
+		client.publish(tempe3, t1String);
 
-	char h1String[8];
-	dtostrf(h1, 1, 2, h1String);
-	char humed1[topHum1.length() + 1];
-	topHum1.toCharArray(humed1, topHum1.length() + 1);
-	client.publish(humed1, h1String);
+		char h1String[8];
+		dtostrf(h1, 1, 2, h1String);
+		char humed1[topHum1.length() + 1];
+		topHum1.toCharArray(humed1, topHum1.length() + 1);
+		client.publish(humed1, h1String);
 
-	char h2String[8];
-	dtostrf(h2, 1, 2, h2String);
-	char humed2[topHum2.length() + 1];
-	topHum2.toCharArray(humed2, topHum2.length() + 1);
-	client.publish(humed2, h2String);
+		char h2String[8];
+		dtostrf(h2, 1, 2, h2String);
+		char humed2[topHum2.length() + 1];
+		topHum2.toCharArray(humed2, topHum2.length() + 1);
+		client.publish(humed2, h2String);
 
-	char h3String[8];
-	dtostrf(h3, 1, 2, h3String);
-	char humed3[topHum3.length() + 1];
-	topHum3.toCharArray(humed3, topHum3.length() + 1);
-	client.publish(humed3, h3String);
-
-
+		char h3String[8];
+		dtostrf(h3, 1, 2, h3String);
+		char humed3[topHum3.length() + 1];
+		topHum3.toCharArray(humed3, topHum3.length() + 1);
+		client.publish(humed3, h3String);
+	}
+	
 	return estatus;
 }
 
@@ -934,42 +931,41 @@ bool revisarPuertas() {
 			beep(5);
 	}
 		
-	if (!client.connected()) {
+	if (client.state() != 0) {
 		reconnect();
 	}
-	client.loop();
+	if (client.state() == 0) {
 
-	char p1String[8];
-	dtostrf(p1Abierta, 1, 2, p1String);
-	char puert1[topPue1.length() + 1];
-	topPue1.toCharArray(puert1, topPue1.length() + 1);
-	client.publish(puert1, p1String);
+		char p1String[8];
+		dtostrf(p1Abierta, 1, 2, p1String);
+		char puert1[topPue1.length() + 1];
+		topPue1.toCharArray(puert1, topPue1.length() + 1);
+		client.publish(puert1, p1String);
 
-	char p2String[8];
-	dtostrf(p2Abierta, 1, 2, p2String);
-	char puert2[topPue2.length() + 1];
-	topPue2.toCharArray(puert2, topPue2.length() + 1);
-	client.publish(puert2, p2String);
+		char p2String[8];
+		dtostrf(p2Abierta, 1, 2, p2String);
+		char puert2[topPue2.length() + 1];
+		topPue2.toCharArray(puert2, topPue2.length() + 1);
+		client.publish(puert2, p2String);
 
-	char p3String[8];
-	dtostrf(p3Abierta, 1, 2, p3String);
-	char puert3[topPue3.length() + 1];
-	topPue3.toCharArray(puert3, topPue3.length() + 1);
-	client.publish(puert3, p3String);
+		char p3String[8];
+		dtostrf(p3Abierta, 1, 2, p3String);
+		char puert3[topPue3.length() + 1];
+		topPue3.toCharArray(puert3, topPue3.length() + 1);
+		client.publish(puert3, p3String);
 
-	char p4String[8];
-	dtostrf(p4Abierta, 1, 2, p4String);
-	char puert4[topPue4.length() + 1];
-	topPue4.toCharArray(puert4, topPue4.length() + 1);
-	client.publish(puert4, p4String);
-
+		char p4String[8];
+		dtostrf(p4Abierta, 1, 2, p4String);
+		char puert4[topPue4.length() + 1];
+		topPue4.toCharArray(puert4, topPue4.length() + 1);
+		client.publish(puert4, p4String);
+	}
 	return 1;
 }
 
 
 void reconnect() {
-	int i = 0;
-	Serial.println("Iniciando reconexión MQTT...");
+
 	char mqtt[servidorMQTT.length() + 1];
 	servidorMQTT.toCharArray(mqtt, servidorMQTT.length() + 1);
 	debug ? Serial.println(mqtt) : false;
@@ -977,7 +973,24 @@ void reconnect() {
 
 	client.connect("SUCAHERSA");
 	client.setKeepAlive(180);
+	Serial.print("Estado de MQTT de arranque: ");
 	Serial.println(client.state());
+	int i = 0;
+
+
+
+	/*
+
+	Serial.println("Iniciando reconexión MQTT...");
+	servidorMQTT.toCharArray(mqtt, servidorMQTT.length() + 1);
+	char mqtt[servidorMQTT.length() + 1];
+	debug ? Serial.println(mqtt) : false;
+	client.setServer(mqtt, 1883);
+
+	client.connect("SUCAHERSA");
+	client.setKeepAlive(180);
+	Serial.println(client.state());
+	*/
 
 	while (!client.connected()) {
 		Serial.print("Intentando enlazar MQTT...");
@@ -987,14 +1000,19 @@ void reconnect() {
 		else {
 			client.disconnect();
 			Serial.println(client.state());
-			Serial.print("failed, rc=");
+			Serial.print("Falla, rc=");
 			Serial.println(client.state());
 			Serial.println(" intentando en 5 seconds");
 			client.disconnect();
 			client.connect("SUCAHERSA");
 			Serial.println(client.state());
 			i++;
-			delay(1000);
+			if (i == 1) {
+				Serial.println("Omitiendo conexión a MQTT...");
+				delay(1000);
+				break;
+			}
+			delay(100);
 		}
 	}
 }
