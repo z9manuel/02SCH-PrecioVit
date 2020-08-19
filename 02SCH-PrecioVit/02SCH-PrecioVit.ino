@@ -90,7 +90,7 @@ void setup() {
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
 	ledOK();
 
-	/*    QUITAR ESTE COMENTARIO
+	/*    QUITAR ESTE COMENTARIO */
 	obtenerParametros();
 	if (debug) {
 		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE			PRECIO");
@@ -99,7 +99,7 @@ void setup() {
 		}
 		Serial.println("Todos los productos cargados con exito!");
 	}
-	*/
+	
 	
 	leerTemperatura();
 }
