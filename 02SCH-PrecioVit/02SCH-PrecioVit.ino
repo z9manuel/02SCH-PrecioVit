@@ -31,16 +31,19 @@ boolean okSD = 0, okNET = 0;
 boolean error = 0;
 String servidorAPI;
 String servidorMQTT;
+String servidorMQTTGlobal;
 WiFiClient espClient;
+WiFiClient espClientGlobal;
 PubSubClient client(espClient);
+PubSubClient clientGlobal(espClientGlobal);
 
 String schAPI;
 String carnicareia;
 String iddispositivo;
 byte tipo = 1;
 String tiempo = "";
-String topTemp1, topTemp2, topTemp3;
-String topHum1, topHum2, topHum3;
+String TopAvgTemp, topTemp1, topTemp2, topTemp3;
+String TopAvgHum, topHum1, topHum2, topHum3;
 String topPue1, topPue2, topPue3, topPue4;
 bool debug = 0;
 
@@ -51,7 +54,7 @@ int ledAzul = 15;
 String charola[30];
 String articulo[30];
 String nombre[30];
-String menudeo[29];
+String menudeo[30];
 
 #define BUZZER		12
 #define DHTPIN1		14
@@ -61,8 +64,9 @@ String menudeo[29];
 DHT dht1(DHTPIN1, DHTTYPE);
 DHT dht2(DHTPIN2, DHTTYPE);
 DHT dht3(DHTPIN3, DHTTYPE);
-int   h1, h2, h3;  //Humedad
-float t1, t2, t3;  //Temperatura
+int   h_avg, h1, h2, h3;                //Humedad
+float t_avg, t1, t2, t3;                //Temperatura
+int   pue1=0, pue2=0, pue3=0, pue4=0;  //Puertas
 
 
 
@@ -104,7 +108,6 @@ void setup() {
 	leerTemperatura();
 }
 
-
 void loop() {
 
 	revisarPuertas();
@@ -124,6 +127,7 @@ void loop() {
 	}
 
 }
+
 
 
 boolean iniciarMCU() {
@@ -189,9 +193,12 @@ boolean iniciarMCU() {
 		apiser = textapi;
 		cronos = textntp;
 		String mosquitto = doc["MQTT"];
+		String mosquittoGlobal = doc["MQTTGlobal"];
+		String tempAVG = doc["avgTemp"];
 		String temp1 = doc["topTem1"];
 		String temp2 = doc["topTem2"];
 		String temp3 = doc["topTem3"];
+		String humeAVG = doc["avgHum"];
 		String hume1 = doc["topHum1"];
 		String hume2 = doc["topHum2"];
 		String hume3 = doc["topHum3"];
@@ -200,8 +207,9 @@ boolean iniciarMCU() {
 		String puerta3 = doc["topPue3"];
 		String puerta4 = doc["topPue4"];
 		servidorMQTT = mosquitto;
-		topTemp1 = temp1;  topTemp2 = temp2; topTemp3 = temp3;
-		topHum1 = hume1; topHum2 = hume2; topHum3= hume3;
+		servidorMQTTGlobal = mosquitto;
+		TopAvgTemp= tempAVG, topTemp1 = temp1;  topTemp2 = temp2; topTemp3 = temp3;
+		TopAvgHum= humeAVG, topHum1 = hume1; topHum2 = hume2; topHum3= hume3;
 		topPue1 = puerta1; topPue2 = puerta2; topPue3 = puerta3; topPue4 = puerta4;
 		okSD = 1;
 	}
@@ -275,12 +283,24 @@ boolean iniciarMCU() {
 		servidorMQTT.toCharArray(mqtt, servidorMQTT.length() + 1);
 		debug ? Serial.println(mqtt) : false;
 		client.setServer(mqtt, 1883);
-		
+
 		client.connect("SUCAHERSA");
 		client.setKeepAlive(180);
 		Serial.print("Estado de MQTT de arranque: ");
 		Serial.println(client.state());
-		delay(2000);
+
+
+		char mqttGlobal[servidorMQTTGlobal.length() + 1];
+		servidorMQTTGlobal.toCharArray(mqttGlobal, servidorMQTTGlobal.length() + 1);
+		debug ? Serial.println(mqttGlobal) : false;
+		clientGlobal.setServer(mqttGlobal, 1883);
+		
+		clientGlobal.connect("SUCAHERSA_Global");
+		clientGlobal.setKeepAlive(180);
+		Serial.print("Estado de MQTT Global de arranque: ");
+		Serial.println(clientGlobal.state());
+
+		delay(5000);
 	}
 	return okNET;
 }
@@ -857,6 +877,20 @@ bool leerTemperatura() {
 		char humed3[topHum3.length() + 1];
 		topHum3.toCharArray(humed3, topHum3.length() + 1);
 		client.publish(humed3, h3String);
+
+		h_avg = (h1 + h2 + h3) / 3;
+		char HString[8];
+		dtostrf(h_avg, 1, 2, HString);
+		char humed[TopAvgHum.length() + 1];
+		TopAvgHum.toCharArray(humed, TopAvgHum.length() + 1);
+		clientGlobal.publish(humed, HString);
+
+		t_avg = (t1+t2+t3)/3;
+		char TString[8];
+		dtostrf(t_avg, 1, 2, TString);
+		char temper[TopAvgTemp.length() + 1];
+		TopAvgTemp.toCharArray(temper, TopAvgTemp.length() + 1);
+		clientGlobal.publish(temper, TString);
 	}
 	
 	return estatus;
@@ -917,6 +951,11 @@ bool revisarPuertas() {
 	deltaP3 == 0 ? deltaP3++ : false;
 	deltaP4 == 0 ? deltaP4++ : false;
 
+	pue1 = deltaP1;
+	pue2 = deltaP2;
+	pue3 = deltaP3;
+	pue4 = deltaP4;
+
 	if ((deltaP1 % 300 == 0) || (deltaP2 % 300 == 0) || (deltaP3 % 300 == 0) || (deltaP4 % 300 == 0))
 		beep(5);
 	else if ((deltaP1 % 240 == 0) || (deltaP2 % 240 == 0) || (deltaP3 % 240 == 0) || (deltaP4 % 240 == 0))
@@ -963,7 +1002,6 @@ bool revisarPuertas() {
 	return 1;
 }
 
-
 void reconnect() {
 
 	char mqtt[servidorMQTT.length() + 1];
@@ -975,10 +1013,18 @@ void reconnect() {
 	client.setKeepAlive(180);
 	Serial.print("Estado de MQTT de arranque: ");
 	Serial.println(client.state());
+
+	char mqttGlobal[servidorMQTTGlobal.length() + 1];
+	servidorMQTTGlobal.toCharArray(mqttGlobal, servidorMQTTGlobal.length() + 1);
+	debug ? Serial.println(mqttGlobal) : false;
+	clientGlobal.setServer(mqttGlobal, 1883);
+
+	clientGlobal.connect("SUCAHERSA_Global");
+	clientGlobal.setKeepAlive(180);
+	Serial.print("Estado de MQTT Global de arranque: ");
+	Serial.println(clientGlobal.state());
+
 	int i = 0;
-
-
-
 	/*
 
 	Serial.println("Iniciando reconexión MQTT...");
@@ -1009,7 +1055,7 @@ void reconnect() {
 			i++;
 			if (i == 1) {
 				Serial.println("Omitiendo conexión a MQTT...");
-				delay(1000);
+				delay(500);
 				break;
 			}
 			delay(100);
