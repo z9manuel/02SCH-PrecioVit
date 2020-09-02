@@ -91,19 +91,19 @@ void setup() {
 	Serial.begin(115200);
 	debug = debugActivar();
 	debug ? Serial.println("Debug activado!") : false;
+	into();
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
 	ledOK();
 
-	/*    QUITAR ESTE COMENTARIO
+	/*    QUITAR ESTE COMENTARIO	*/
 	obtenerParametros();
 	if (debug) {
-		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE			PRECIO");
+		debug ? Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE			PRECIO") : false;
 		for (int i = 0; i < 27; i++) {
-			Serial.println(String(i+1) + "\t" +articulo[i] + "\t\t\t" + nombre[i] + "\t\t\t" + menudeo[i]);
+			debug ? Serial.println(String(i + 1) + "\t" + articulo[i] + "\t\t\t" + nombre[i] + "\t\t\t" + menudeo[i]) : false;
 		}
-		Serial.println("Todos los productos cargados con exito!");
+		Serial.println("Todos los productos  y precios actualizados con exito!");
 	}
-	 */
 	
 	leerTemperatura();
 }
@@ -111,22 +111,36 @@ void setup() {
 void loop() {
 
 	revisarPuertas();
-	delay(10000);		//
-	leerTemperatura();	//
+	// delay(10000);		//
+	//leerTemperatura();	//
 	//enviar_a_API(dato_a_JSON());	//
-	delay(1000);
+	//delay(1000);
 	unsigned long millies_atcuales_activo = millis();
 	if (millies_atcuales_activo - millis_previos_activo > inervalo_activo) {
 		millis_previos_activo = millies_atcuales_activo;
 		debug ? Serial.println("Ha pasado un minuto!") : false;
 		leerTemperatura();
-		!enviar_a_API(dato_a_JSON()) ? Serial.println("Falla envio a API...") : Serial.println("Envio a API Ok!!!");
+
+		if (!enviar_a_API(dato_a_JSON())) {
+			debug ? Serial.println("Falla envio a API...") : false;
+			ledFalla();
+			SD_escribirLog(dato_a_JSON());
+			debug ? Serial.println("Datos almacenados:") : false;
+			if (debug)
+				delay(5000);
+		}
+		else {
+			debug ? Serial.println("Envio a API Ok!!!") : false;
+			ledOK();
+			debug ? Serial.println("Verificando existencia de registros sin enviar...") : false;
+			SD_leerLog();
+		}
 	}
 
 	unsigned long millies_atcuales_precios = millis();
 	if (millies_atcuales_precios - millis_previos_precios > inervalo_precios) {
 		millis_previos_precios = millies_atcuales_precios;
-		debug ? Serial.println("Han pasado 60 minutos!") : false;
+		
 		obtenerParametros();
 	}
 
@@ -395,7 +409,8 @@ int enviar_a_API(String dato) {
 			if (httpResponseCode > 0) {
 				String response = http.getString();
 				//Serial.println(httpResponseCode);
-				Serial.println(response);
+				debug ? Serial.println(response) : false;
+				
 				http.end();
 				enviado = 1;
 				intentos = 0;
@@ -403,17 +418,18 @@ int enviar_a_API(String dato) {
 				delay(100);
 			}
 			else {
-				Serial.println("Error al enviar HTTP POST");
+				debug ? Serial.println("Error al enviar HTTP POST") : false;
+				beep(1);
 				
 				if (intentos > 1) {
 					ledFalla();
-					Serial.println("Reintentando HTTP POST");
+					debug ? Serial.println("Reintentando HTTP POST") : false;
 					delay(100);				
 				}
 				if (intentos == 1)
 				{
 					ledFalla();
-					Serial.println("Almacenando en SD");
+					debug ? Serial.println("Almacenando en SD") : false;
 					delay(500);
 					if (httpResponseCode == -1)
 					{
@@ -429,8 +445,9 @@ int enviar_a_API(String dato) {
 			}
 		}
 		else {
-			Serial.println("WiFi no disponible!");
-			Serial.println("Error al enviar HTTP POST");
+			debug ? Serial.println("WiFi no disponible!") : false;
+			debug ? Serial.println("Error al enviar HTTP POST") : false;
+			beep(1);
 			delay(500);
 			ledFalla();
 			iniciarMCU();
@@ -659,6 +676,7 @@ bool SD_leerLog() {
 			dataLog.position();
 			while (dataLog.available()) {
 				linea = dataLog.readStringUntil('\n');
+				debug ? Serial.println("Enviando registro en almacenamiento local...") : false;
 				enviado = enviar_a_API(linea);
 				if (enviado == false) {
 					return false;
@@ -669,6 +687,8 @@ bool SD_leerLog() {
 				return 1;
 			}
 		}
+		else
+			debug ? Serial.println("Nada por enviar!") : false;
 	}
 	return false;
 }
@@ -745,15 +765,15 @@ String obtenerPrecio_API(String dato) {
 
 			if (httpResponseCode > 0) {
 				response = http.getString();
-				Serial.println(httpResponseCode);
-				Serial.println(response);
+				debug ? Serial.println(httpResponseCode): false;
+				debug ? Serial.println(response): false;
 				http.end();
 				enviado = 1;
 				intentos = 0;
 				delay(1000);
 			}
 			else {
-				Serial.println("Error al enviar HTTP POST");
+				Serial.println("Error al enviar HTTP POST api SUCAHERSA");
 				delay(500);
 				if (intentos > 1) {
 					Serial.println("Reintentando HTTP POST");
@@ -783,12 +803,12 @@ String obtenerPrecio_API(String dato) {
 		DynamicJsonDocument respuesta(1024);
 		DeserializationError error = deserializeJson(respuesta, response);
 		if (error) {
-			Serial.print("Error en configuraciones!");
+			debug ? Serial.print("Error en configuraciones!") : false;
 			Serial.println(error.c_str());
 			okSD = 0;
 		}
 		String textResponse = respuesta["response"];
-		Serial.println(textResponse);
+		debug ? Serial.println(textResponse): false;
 
 		error = deserializeJson(respuesta, textResponse);
 		if (error) {
@@ -798,12 +818,12 @@ String obtenerPrecio_API(String dato) {
 		}
 		String Menudeo = respuesta["Menudeo"];
 		precio = "$ " + String(Menudeo.toFloat());
-		Serial.println("El precio es: " + precio);
+		debug ? Serial.println("El precio es: " + precio): false;
 
 
 	}
 	else {
-		Serial.println("Error al abrir configuración!");
+		Serial.println("Error al abrir configuracion en un precio!");
 		return "No disponible";
 	}
 	httpResponseCode == 200 ? ledComunicacion() : ledFalla();
@@ -878,11 +898,15 @@ bool leerTemperatura() {
 	debug ? Serial.println(String(t3) + " °C\t\t" + String(h3) + " %") : false;
 	estatus = 1;
 	estatus ? ledOK() : ledFalla();
+	
 
-	Serial.print("Estado de MQTT: ");
-	Serial.println(client.connected());
+	debug ? Serial.print("Estado de MQTT: ") : false;
+	debug ? Serial.println(client.state()) : false;
+	
 
 	if (client.state() != 0) {
+		ledFalla();
+		debug ? Serial.println("Reconectando MQTT...") : false;
 		reconnect();
 	}
 
@@ -943,7 +967,7 @@ bool leerTemperatura() {
 
 void beep(int nivel) {
 	int tiempo = nivel * 100;
-	Serial.println("En Beep " + String(nivel));
+	debug ? Serial.println("En Beep " + String(nivel)): false;
 	for (int i = 0; i < (3 * nivel); i++) {
 		digitalWrite(ledRojo, HIGH);
 		digitalWrite(BUZZER, HIGH);
@@ -1056,8 +1080,9 @@ void reconnect() {
 
 	client.connect("SUCAHERSA");
 	client.setKeepAlive(180);
-	Serial.print("Estado de MQTT de arranque: ");
-	Serial.println(client.state());
+	debug ? Serial.print("Estado de MQTT de arranque: ") : false;
+	debug ? Serial.println(client.state()) : false;
+	
 
 	char mqttGlobal[servidorMQTTGlobal.length() + 1];
 	servidorMQTTGlobal.toCharArray(mqttGlobal, servidorMQTTGlobal.length() + 1);
@@ -1066,8 +1091,10 @@ void reconnect() {
 
 	clientGlobal.connect("SUCAHERSA_Global");
 	clientGlobal.setKeepAlive(180);
-	Serial.print("Estado de MQTT Global de arranque: ");
-	Serial.println(clientGlobal.state());
+	debug ? Serial.print("Estado de MQTT Global de arranque: ") : false;
+	debug ? Serial.println(clientGlobal.state()) : false;
+	
+	
 
 	int i = 0;
 	/*
@@ -1106,4 +1133,19 @@ void reconnect() {
 			delay(100);
 		}
 	}
+}
+
+void into() {
+	Serial.println("Iniciando...");
+	delay(2000);
+	Serial.println("\n");
+	Serial.println("CIATEC, A.C.");
+	Serial.println("DIRECCION DE INVESTIGACION Y SOLUCIONES TECNOLOGICAS");
+	Serial.println("SERVICIOS TECNOLOGICOS DE APOYO A LA SALUD");
+	Serial.println("SALUD 4.0");
+	Serial.println("www.ciatec.mx");
+	Serial.println("\nSistema de monitoreo de estados en vitrina.");
+	debug ? Serial.println("mrodriguez@ciatec.mx") : false;
+	Serial.println("\n\n\n");
+	delay(2000);
 }
