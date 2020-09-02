@@ -38,7 +38,7 @@ PubSubClient client(espClient);
 PubSubClient clientGlobal(espClientGlobal);
 
 String schAPI;
-String carnicareia;
+String carniceria;
 String iddispositivo;
 byte tipo = 1;
 String tiempo = "";
@@ -94,7 +94,7 @@ void setup() {
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
 	ledOK();
 
-	/*    QUITAR ESTE COMENTARIO */
+	/*    QUITAR ESTE COMENTARIO
 	obtenerParametros();
 	if (debug) {
 		Serial.println("Productos seleccionados para busqueda de precio...\nARTICULO			NOMBRE			PRECIO");
@@ -103,7 +103,7 @@ void setup() {
 		}
 		Serial.println("Todos los productos cargados con exito!");
 	}
-	
+	 */
 	
 	leerTemperatura();
 }
@@ -111,12 +111,16 @@ void setup() {
 void loop() {
 
 	revisarPuertas();
-
+	delay(10000);		//
+	leerTemperatura();	//
+	//enviar_a_API(dato_a_JSON());	//
+	delay(1000);
 	unsigned long millies_atcuales_activo = millis();
 	if (millies_atcuales_activo - millis_previos_activo > inervalo_activo) {
 		millis_previos_activo = millies_atcuales_activo;
 		debug ? Serial.println("Ha pasado un minuto!") : false;
 		leerTemperatura();
+		!enviar_a_API(dato_a_JSON()) ? Serial.println("Falla envio a API...") : Serial.println("Envio a API Ok!!!");
 	}
 
 	unsigned long millies_atcuales_precios = millis();
@@ -179,6 +183,9 @@ boolean iniciarMCU() {
 			okSD = 0;
 		}
 
+		String carni = doc["carniceria"];
+		byte dev_tipo = doc["tipodispositivo"];
+		String device = doc["iddispositivo"];
 		ipA = int(doc["ipA"]); ipB = int(doc["ipB"]); ipC = int(doc["ipC"]); ipD = int(doc["ipD"]);
 		gwA = int(doc["gwA"]); gwB = int(doc["gwB"]); gwC = int(doc["gwC"]); gwD = int(doc["gwD"]);
 		msA = int(doc["msA"]); msB = int(doc["msB"]); msC = int(doc["msC"]); msD = int(doc["msD"]);
@@ -206,6 +213,9 @@ boolean iniciarMCU() {
 		String puerta2 = doc["topPue2"];
 		String puerta3 = doc["topPue3"];
 		String puerta4 = doc["topPue4"];
+		carniceria = carni;
+		tipo = dev_tipo;
+		iddispositivo = device;
 		servidorMQTT = mosquitto;
 		servidorMQTTGlobal = mosquitto;
 		TopAvgTemp= tempAVG, topTemp1 = temp1;  topTemp2 = temp2; topTemp3 = temp3;
@@ -305,151 +315,41 @@ boolean iniciarMCU() {
 	return okNET;
 }
 
-int enviar_a_API(String dato) {
-	/*
-	Funcion responsable de enviar paquetes formateados a servidor WebAPI mediante POST
-	Toma de los parametros globales la dirección del servidor WebAPI
-	Recibe como parametro una cadena de texto serializada en formato JSON
-	*/
-	boolean enviado = 0;
-	int intentos = 9;
-	String requestBody = dato;
-
-	while (!enviado || intentos > 0)
-	{
-		if (WiFi.status() == WL_CONNECTED) {
-
-			HTTPClient http;
-			http.begin(servidorAPI);
-			http.addHeader("Content-Type", "application/json");
-			int httpResponseCode = http.POST(requestBody);
-			delay(500);
-
-			if (httpResponseCode > 0) {
-				String response = http.getString();
-				Serial.println(httpResponseCode);
-				Serial.println(response);
-				http.end();
-				enviado = 1;
-				intentos = 0;
-				delay(1000);
-			}
-			else {
-				Serial.println("Error al enviar HTTP POST");
-				delay(500);
-				if (intentos > 1) {
-					Serial.println("Reintentando HTTP POST");
-					delay(500);
-					intentos--;
-				}
-				if (intentos == 1)
-				{
-					Serial.println("Almacenando en SD");
-					iniciarMCU();
-					intentos--;
-				}
-				http.end();
-			}
-		}
-		else {
-			Serial.println("WiFi no disponible!");
-			Serial.println("Error al enviar HTTP POST");
-			delay(500);
-			iniciarMCU();
-			delay(500);
-			intentos--;
-		}
-	}
-
-	return enviado ? 1 : 0;
-}
-
-bool SD_validar() {
-	SD.begin(SD_CS);
-	if (!SD.begin(SD_CS)) {
-		Serial.println("Error modulo SD!");
-		return false;
-	}
-	uint8_t cardType = SD.cardType();
-	if (cardType == CARD_NONE) {
-		Serial.println("Error tarjeta SD!");
-		return false;
-	}
-	if (!SD.begin(SD_CS)) {
-		Serial.println("ERROR - Falla en tarjeta SD!");
-		return false;
-	}
-	return 1;
-}
-
-bool SD_leerLog() {
-	if (SD_validar()) {
-		File dataLog = SD.open("/log.txt", FILE_READ);
-		if (dataLog) {
-			bool enviado = 0;
-			String linea;
-			dataLog.position();
-			while (dataLog.available()) {
-				linea = dataLog.readStringUntil('\n');
-				enviado = enviar_a_API(linea);
-				if (enviado == false) {
-					return false;
-				}
-			}
-			dataLog.close();
-			if (SD_borrarLog()) {
-				return 1;
-			}
-		}
-	}
-	return false;
-}
-
-bool SD_escribirLog(String cadena) {
-	if (SD_validar()) {
-		SD.begin(SD_CS);
-		File dataLog = SD.open("/log.txt", FILE_APPEND);
-		if (dataLog) {
-			dataLog.println(cadena);
-			dataLog.close();
-			Serial.println(cadena);
-			return 1;
-		}
-	}
-	return false;
-}
-
-bool SD_borrarLog() {
-	if (SD_validar()) {
-		SD.begin(SD_CS);
-		if (SD.remove("/log.txt")) {
-			Serial.println("Registro borrado.");
-			schFile.close();
-			return 1;
-		}
-	}
-	return false;
-}
-
-String dato_a_JSON(String bfr_Tiempo[], float bfr_Temperatura[], int bfr_Humedad[]) {
+String dato_a_JSON() {
 	/*
 	Funcion responsable de formatear los datos generados, modificar dependiendo de dispositivo
 	Toma como parametros los datos generales de indentificación de la carnicería
 	Y recibe como parametros los Buffers de tiempo, temperatura y humedad
 	No utilizar Buffers de mas de 30 elementos
+	https://httpbin.org/anything
 	*/
 	String requestBody;
 	delay(500);
 
-	DynamicJsonDocument paquete(4096);
-	StaticJsonDocument<1024> sensor;
-	JsonArray cuerpoDatos = paquete.createNestedArray("cuerpoDatos");
+	StaticJsonDocument<4096> paquete;
+	//DynamicJsonDocument paquete(4096);
+	//StaticJsonDocument<1024> sensor;
+	//JsonArray cuerpoDatos = paquete.createNestedArray("cuerpoDatos");
 
-	paquete["carniceria"] = carnicareia;
-	paquete["fecha"] = DateTime.toString();;
-	paquete["tipo"] = tipo;
+	paquete["carniceria"] = carniceria;
+	paquete["tipodispositivo"] = tipo;
+	paquete["iddispositivo"] = iddispositivo;
+	paquete["fecha"] = DateTime.toString();
 
+	paquete["h_avg"] = h_avg;
+	paquete["h1"] = h1;
+	paquete["h2"] = h2;
+	paquete["h3"] = h3;
+	paquete["t_avg"] = t_avg;
+	paquete["t1"] = t1;
+	paquete["t2"] = t2;
+	paquete["t3"] = t3;
+	paquete["pue1"] = pue1;
+	paquete["pue2"] = pue2;
+	paquete["pue3"] = pue3;
+	paquete["pue4"] = pue4;
 
+	/*
 	for (int i = 0; i < 30; i++)
 	{
 		sensor["hora"] = bfr_Tiempo[i];
@@ -459,21 +359,86 @@ String dato_a_JSON(String bfr_Tiempo[], float bfr_Temperatura[], int bfr_Humedad
 		serializeJson(sensor, cuerpo);
 		cuerpoDatos.add(cuerpo);
 	}
+	*/
+
 	serializeJson(paquete, requestBody);
+	debug ? Serial.println("Cadena a enviar: ") : false;
+	debug ? Serial.println(requestBody) : false;
 	return requestBody;
 }
 
-bool debugActivar() {
-	if (SD_validar()) {
-		File dataLog = SD.open("/debug", FILE_READ);
-		if (dataLog) {
-			debug ? Serial.println("El dispositivo esta en modo DEBUG.") : false;
-			dataLog.close();
-			ledOK();
-			return true;
+int enviar_a_API(String dato) {
+	/*
+	Funcion responsable de enviar paquetes formateados a servidor WebAPI mediante POST
+	Toma de los parametros globales la dirección del servidor WebAPI
+	Recibe como parametro una cadena de texto serializada en formato JSON
+	*/
+	debug ? Serial.println("Entrando a función enviar_a_API") : false;
+	boolean enviado = 0;
+	int intentos = 9;
+	String requestBody = dato;
+
+	while (!enviado || intentos > 0)
+	{
+		if (WiFi.status() == WL_CONNECTED) {
+			debug ? Serial.print("Servidor API: ") : false;
+			debug ? Serial.println(servidorAPI) : false;
+
+			HTTPClient http;
+			http.begin(servidorAPI);
+			http.addHeader("Content-Type", "application/json");
+			int httpResponseCode = http.POST(requestBody);
+			delay(1000);
+
+			debug ? Serial.print("\nhttpResponseCode: ") : false;
+			debug ? Serial.println(httpResponseCode) : false;
+			if (httpResponseCode > 0) {
+				String response = http.getString();
+				//Serial.println(httpResponseCode);
+				Serial.println(response);
+				http.end();
+				enviado = 1;
+				intentos = 0;
+				ledOK();
+				delay(100);
+			}
+			else {
+				Serial.println("Error al enviar HTTP POST");
+				
+				if (intentos > 1) {
+					ledFalla();
+					Serial.println("Reintentando HTTP POST");
+					delay(100);				
+				}
+				if (intentos == 1)
+				{
+					ledFalla();
+					Serial.println("Almacenando en SD");
+					delay(500);
+					if (httpResponseCode == -1)
+					{
+						ledFalla();
+						http.end();
+						return 0;
+					}
+				}
+
+				intentos--;
+				http.end();
+				delay(500);
+			}
+		}
+		else {
+			Serial.println("WiFi no disponible!");
+			Serial.println("Error al enviar HTTP POST");
+			delay(500);
+			ledFalla();
+			iniciarMCU();
+			intentos--;
 		}
 	}
-	return false;
+
+	return enviado ? 1 : 0;
 }
 
 boolean obtenerParametros() {
@@ -665,6 +630,86 @@ boolean obtenerParametros() {
 		return false;
 	}
 	return okNET;
+}
+
+bool SD_validar() {
+	SD.begin(SD_CS);
+	if (!SD.begin(SD_CS)) {
+		Serial.println("Error modulo SD!");
+		return false;
+	}
+	uint8_t cardType = SD.cardType();
+	if (cardType == CARD_NONE) {
+		Serial.println("Error tarjeta SD!");
+		return false;
+	}
+	if (!SD.begin(SD_CS)) {
+		Serial.println("ERROR - Falla en tarjeta SD!");
+		return false;
+	}
+	return 1;
+}
+
+bool SD_leerLog() {
+	if (SD_validar()) {
+		File dataLog = SD.open("/log.txt", FILE_READ);
+		if (dataLog) {
+			bool enviado = 0;
+			String linea;
+			dataLog.position();
+			while (dataLog.available()) {
+				linea = dataLog.readStringUntil('\n');
+				enviado = enviar_a_API(linea);
+				if (enviado == false) {
+					return false;
+				}
+			}
+			dataLog.close();
+			if (SD_borrarLog()) {
+				return 1;
+			}
+		}
+	}
+	return false;
+}
+
+bool SD_escribirLog(String cadena) {
+	if (SD_validar()) {
+		SD.begin(SD_CS);
+		File dataLog = SD.open("/log.txt", FILE_APPEND);
+		if (dataLog) {
+			dataLog.println(cadena);
+			dataLog.close();
+			Serial.println(cadena);
+			return 1;
+		}
+	}
+	return false;
+}
+
+bool SD_borrarLog() {
+	if (SD_validar()) {
+		SD.begin(SD_CS);
+		if (SD.remove("/log.txt")) {
+			Serial.println("Registro borrado.");
+			schFile.close();
+			return 1;
+		}
+	}
+	return false;
+}
+
+bool debugActivar() {
+	if (SD_validar()) {
+		File dataLog = SD.open("/debug", FILE_READ);
+		if (dataLog) {
+			debug ? Serial.println("El dispositivo esta en modo DEBUG.") : false;
+			dataLog.close();
+			ledOK();
+			return true;
+		}
+	}
+	return false;
 }
 
 String obtenerPrecio_API(String dato) {
