@@ -91,7 +91,7 @@ void setup() {
 	Serial.begin(115200);
 	debug = debugActivar();
 	debug ? Serial.println("Debug activado!") : false;
-	into();
+	intro();
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
 	ledOK();
 
@@ -236,9 +236,11 @@ boolean iniciarMCU() {
 		TopAvgHum= humeAVG, topHum1 = hume1; topHum2 = hume2; topHum3= hume3;
 		topPue1 = puerta1; topPue2 = puerta2; topPue3 = puerta3; topPue4 = puerta4;
 		okSD = 1;
+		ledOK();
 	}
 	else {
-		Serial.println("Error al abrir configuración!");
+		Serial.println("Error al abrir configuración de parametros!");
+		ledFalla();
 		return false;
 	}
 
@@ -643,7 +645,8 @@ boolean obtenerParametros() {
 			menudeo[i] = obtenerPrecio_API(articulo[i]);
 	}
 	else {
-		Serial.println("Error al abrir configuración!");
+		Serial.println("Error al abrir configuración en precio!");
+		ledFalla();
 		return false;
 	}
 	return okNET;
@@ -700,7 +703,7 @@ bool SD_escribirLog(String cadena) {
 		if (dataLog) {
 			dataLog.println(cadena);
 			dataLog.close();
-			Serial.println(cadena);
+			debug ? Serial.println(cadena): false;
 			return 1;
 		}
 	}
@@ -792,7 +795,7 @@ String obtenerPrecio_API(String dato) {
 		else {
 			Serial.println("WiFi no disponible!");
 			Serial.println("Error al enviar HTTP POST");
-			delay(500);
+			ledFalla();
 			iniciarMCU();
 			delay(500);
 			intentos--;
@@ -803,7 +806,7 @@ String obtenerPrecio_API(String dato) {
 		DynamicJsonDocument respuesta(1024);
 		DeserializationError error = deserializeJson(respuesta, response);
 		if (error) {
-			debug ? Serial.print("Error en configuraciones!") : false;
+			debug ? Serial.print("Error en configuraciones precio!") : false;
 			Serial.println(error.c_str());
 			okSD = 0;
 		}
@@ -871,26 +874,45 @@ void ledComunicacion() {
 
 bool leerTemperatura() {
 	bool estatus = 0;
-	h1 = dht1.readHumidity();
-	t1 = dht1.readTemperature();
-	h2 = dht2.readHumidity();
-	t2 = dht2.readTemperature();
-	h3 = dht3.readHumidity();
-	t3 = dht3.readTemperature();
-	if (isnan(h1) || isnan(t1)) {
+	float tempT;
+	int tempH;
+	tempH = dht1.readHumidity();
+	tempT = dht1.readTemperature();
+	if (isnan(tempH) || isnan(tempT)) {
 		debug ? Serial.println("No se peuede leer temperatura/humedad sensor 01") : false;
+		ledFalla();
 		estatus = 0;
 		delay(2000);
 	}
-	if (isnan(h2) || isnan(t2)) {
+	else {
+		h1 = tempH;
+		t1 = tempT;
+	}
+
+	tempH = dht2.readHumidity();
+	tempT = dht2.readTemperature();
+	if (isnan(tempH) || isnan(tempT)) {
 		debug ? Serial.println("No se peuede leer temperatura/humedad sensor 02") : false;
+		ledFalla();
 		estatus = 0;
 		delay(2000);
 	}
-	if (isnan(h3) || isnan(t3)) {
+	else {
+		h2 = tempH;
+		t2 = tempT;
+	}
+
+	tempH = dht3.readHumidity();
+	tempT = dht3.readTemperature();
+	if (isnan(tempH) || isnan(tempT)) {
 		debug ? Serial.println("No se peuede leer temperatura/humedad sensor 03") : false;
+		ledFalla();
 		estatus = 0;
 		delay(2000);
+	}
+	else {
+		h3 = tempH;
+		t3 = tempT;
 	}
 	debug ? Serial.println("Tiempo		Humedad") : false;
 	debug ? Serial.println(String(t1) + " °C\t\t" + String(h1) + " %") : false;
@@ -1135,7 +1157,7 @@ void reconnect() {
 	}
 }
 
-void into() {
+void intro() {
 	Serial.println("Iniciando...");
 	delay(2000);
 	Serial.println("\n");
