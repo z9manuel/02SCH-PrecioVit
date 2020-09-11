@@ -265,26 +265,30 @@ boolean iniciarMCU() {
 
 		WiFi.disconnect();
 		delay(500);
+		Serial.println("MAC: " + WiFi.macAddress());
+		debug ? Serial.println("Iniciando conexión.") : false;
 		WiFi.begin(ssid, password);
+		debug ? Serial.println("Asignando IP.") : false;
 		if (!WiFi.config(local_IP, gateway, subnet, DNS1, DNS2)) {
 			Serial.println("Error al configurar IP...");
 			okNET = 0;
 		}
 		delay(500);
 		int i = 0;
+		Serial.print("Conectando a WiFi ...");
 		while (WiFi.status() != WL_CONNECTED) {
 			WiFi.disconnect();
-			Serial.println("Conectando a WiFi..");
-			delay(500);
+			Serial.print(".");
 			WiFi.begin(ssid, password);
+			delay(500);
 			if (!WiFi.config(local_IP, gateway, subnet, DNS1, DNS2))
 				Serial.println("Error al configurar IP...");
-			i == 9 ? ESP.restart() : delay(1000);
+			i == 20 ? ESP.restart() : delay(1000);
 			i++;
 		}
 		Serial.print("WiFi OK: ");
 		okNET = 1;
-		Serial.println(local_IP);
+		Serial.println(WiFi.localIP());
 		Serial.println("Buscando NTP...");
 		DateTime.setTimeZone(-6);
 		DateTime.setServer(servidorNTP);
@@ -405,6 +409,7 @@ int enviar_a_API(String dato) {
 			http.addHeader("Content-Type", "application/json");
 			int httpResponseCode = http.POST(requestBody);
 			delay(1000);
+			ledComunicacion();
 
 			debug ? Serial.print("\nhttpResponseCode: ") : false;
 			debug ? Serial.println(httpResponseCode) : false;
