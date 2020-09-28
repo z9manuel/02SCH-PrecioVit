@@ -6,6 +6,7 @@
 */
 
 // Librreias SD
+#include <SoftwareSerial.h>
 #include "FS.h"
 #include "SD.h"
 #include <SPI.h>
@@ -23,6 +24,8 @@
 #define PUERTA2 33
 #define PUERTA3 32
 #define PUERTA4 35
+#define RX 21
+#define TX 22
 bool p1Abierta = 0, p2Abierta = 0, p3Abierta = 0, p4Abierta = 0;
 unsigned long millis_previos_p1 = 0, millis_previos_p2 = 0, millis_previos_p3 = 0, millis_previos_p4 = 0;
 
@@ -36,6 +39,7 @@ WiFiClient espClient;
 WiFiClient espClientGlobal;
 PubSubClient client(espClient);
 PubSubClient clientGlobal(espClientGlobal);
+SoftwareSerial swserial_O(RX, TX);
 
 String schAPI;
 String carniceria;
