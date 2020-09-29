@@ -5,29 +5,36 @@
  Programa para despliegue de pracios en Vitrinas SUCAHERSA
 */
 
-// Librreias SD
 #include <SoftwareSerial.h>
 #include "FS.h"
 #include "SD.h"
 #include <SPI.h>
-// Librerias Red
 #include <ArduinoJson.h>
 #include <DateTime.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-// Librerias para API
 #include <HTTPClient.h>
 #include <DHT.h>
+#include <LiquidCrystal_I2C.h>
 
-#define SD_CS 5						// Define CS pin para modulo SD
-#define PUERTA1 25
-#define PUERTA2 33
-#define PUERTA3 32
-#define PUERTA4 35
-#define RX 21
-#define TX 22
-bool p1Abierta = 0, p2Abierta = 0, p3Abierta = 0, p4Abierta = 0;
-unsigned long millis_previos_p1 = 0, millis_previos_p2 = 0, millis_previos_p3 = 0, millis_previos_p4 = 0;
+#define SD_CS		5						// Define CS pin para modulo SD
+#define PUERTA1		25
+#define PUERTA2		33
+#define PUERTA3		32
+#define PUERTA4		35
+#define RX			17
+#define TX			16
+#define BUZZER		12
+#define DHTPIN1		14
+#define DHTPIN2		27
+#define DHTPIN3		26
+#define DHTTYPE		DHT22
+#define lcdCOLUMNS  16
+#define lcdROWS		2
+
+int lcdColumns = 16;
+int lcdRows = 2;
+
 
 File schFile;
 boolean okSD = 0, okNET = 0;
@@ -40,43 +47,35 @@ WiFiClient espClientGlobal;
 PubSubClient client(espClient);
 PubSubClient clientGlobal(espClientGlobal);
 SoftwareSerial swserial_O(RX, TX);
+DHT dht1(DHTPIN1, DHTTYPE);
+DHT dht2(DHTPIN2, DHTTYPE);
+DHT dht3(DHTPIN3, DHTTYPE);
+LiquidCrystal_I2C lcd(0x27, lcdColumns, lcdRows);
+
+byte tipo = 1;
+bool debug = 0;
+bool p1Abierta = 0, p2Abierta = 0, p3Abierta = 0, p4Abierta = 0;
+int ledRojo = 4;
+int ledVerde = 2;
+int ledAzul = 15;
+int	pue1 = 0, pue2 = 0, pue3 = 0, pue4 = 0;  //Puertas
+int h_avg, h1, h2, h3, h_max = 100, h_min = 85;                //Humedad
+float t_avg, t1, t2, t3, t_max = 2, t_min = -2;                //Temperatura
+unsigned long millis_previos_p1 = 0, millis_previos_p2 = 0, millis_previos_p3 = 0, millis_previos_p4 = 0;
+unsigned long millis_previos_precios = 0, millis_previos_activo = 0;
+int inervalo_precios = 3600000, inervalo_activo = 60000;      // Intervalos de tiempo para Millis
 
 String schAPI;
 String carniceria;
 String iddispositivo;
-byte tipo = 1;
 String tiempo = "";
 String TopAvgTemp, topTemp1, topTemp2, topTemp3;
 String TopAvgHum, topHum1, topHum2, topHum3;
 String topPue1, topPue2, topPue3, topPue4;
-bool debug = 0;
-
-int ledRojo = 4;
-int ledVerde = 2;
-int ledAzul = 15;
-
 String charola[30];
 String articulo[30];
 String nombre[30];
 String menudeo[30];
-
-#define BUZZER		12
-#define DHTPIN1		14
-#define DHTPIN2		27
-#define DHTPIN3		26
-#define DHTTYPE    DHT22
-DHT dht1(DHTPIN1, DHTTYPE);
-DHT dht2(DHTPIN2, DHTTYPE);
-DHT dht3(DHTPIN3, DHTTYPE);
-int   h_avg, h1, h2, h3;                //Humedad
-float t_avg, t1, t2, t3;                //Temperatura
-int   pue1=0, pue2=0, pue3=0, pue4=0;  //Puertas
-
-
-
-unsigned long millis_previos_precios = 0, millis_previos_activo = 0;
-int inervalo_precios = 3600000, inervalo_activo = 60000;
-
 
 void setup() {
 	pinMode(ledRojo, OUTPUT);
@@ -87,14 +86,23 @@ void setup() {
 	pinMode(PUERTA2, INPUT);
 	pinMode(PUERTA3, INPUT);
 	pinMode(PUERTA4, INPUT);
+	lcd.begin(16,2);
+	lcd.init();
+	lcd.backlight();
 	ledFalla();
 	ledComunicacion();
 	dht1.begin();
 	dht2.begin();
 	dht3.begin();
+	swserial_O.begin(9600);
 	Serial.begin(115200);
 	debug = debugActivar();
 	debug ? Serial.println("Debug activado!") : false;
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("   SUCAHERSA");
+	lcd.setCursor(0, 1);
+	lcd.print("  CIATEC, A.C.");
 	intro();
 	iniciarMCU() == true ? Serial.println("MCU Listo!") : Serial.println("MCU Falla!");
 	ledOK();
@@ -113,12 +121,7 @@ void setup() {
 }
 
 void loop() {
-
 	revisarPuertas();
-	// delay(10000);		//
-	//leerTemperatura();	//
-	//enviar_a_API(dato_a_JSON());	//
-	//delay(1000);
 	unsigned long millies_atcuales_activo = millis();
 	if (millies_atcuales_activo - millis_previos_activo > inervalo_activo) {
 		millis_previos_activo = millies_atcuales_activo;
@@ -144,7 +147,6 @@ void loop() {
 	unsigned long millies_atcuales_precios = millis();
 	if (millies_atcuales_precios - millis_previos_precios > inervalo_precios) {
 		millis_previos_precios = millies_atcuales_precios;
-		
 		obtenerParametros();
 	}
 
@@ -239,6 +241,10 @@ boolean iniciarMCU() {
 		TopAvgTemp= tempAVG, topTemp1 = temp1;  topTemp2 = temp2; topTemp3 = temp3;
 		TopAvgHum= humeAVG, topHum1 = hume1; topHum2 = hume2; topHum3= hume3;
 		topPue1 = puerta1; topPue2 = puerta2; topPue3 = puerta3; topPue4 = puerta4;
+		t_max = float((doc["t_max"]));
+		t_min = float((doc["t_min"]));
+		h_max = int((doc["h_max"]));
+		h_min = int((doc["h_min"]));
 		okSD = 1;
 		ledOK();
 	}
@@ -650,8 +656,11 @@ boolean obtenerParametros() {
 		nombre[26] = nomb27;
 		okSD = 1;
 
-		for (int i = 0; i < 27; i++)
+		for (int i = 0; i < 27; i++) {
 			menudeo[i] = obtenerPrecio_API(articulo[i]);
+			swserial_O.print(display_a_JSON(i));
+			delay(200);
+		}
 	}
 	else {
 		Serial.println("Error al abrir configuración en precio!");
@@ -923,12 +932,44 @@ bool leerTemperatura() {
 		h3 = tempH;
 		t3 = tempT;
 	}
+	h_avg = (h1 + h2 + h3) / 3;
+	t_avg = (t1 + t2 + t3) / 3;
 	debug ? Serial.println("Tiempo		Humedad") : false;
 	debug ? Serial.println(String(t1) + " °C\t\t" + String(h1) + " %") : false;
 	debug ? Serial.println(String(t2) + " °C\t\t" + String(h2) + " %") : false;
 	debug ? Serial.println(String(t3) + " °C\t\t" + String(h3) + " %") : false;
 	estatus = 1;
 	estatus ? ledOK() : ledFalla();
+
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("Temp: ");
+	lcd.print(t_avg);
+	lcd.print(" C");
+	lcd.setCursor(0, 1);
+	lcd.print("Hume:    ");
+	lcd.print(h_avg);
+	lcd.print(" %");
+	if (t_avg >= t_max || t_avg <= t_min) {
+		ledFalla();
+		beep(1);
+		ledFalla();
+		beep(1);
+		lcd.setCursor(15, 0);
+		lcd.print("!");
+		debug ? Serial.println("Fuera de rangos aceptables de temperatura!!!") : false;
+		ledFalla();
+		beep(1);
+	}
+	if (h_avg >= h_max || h_avg <= h_min) {
+		ledFalla();
+		beep(1);
+		lcd.setCursor(15, 1);
+		lcd.print("!");
+		debug ? Serial.println("Fuera de rangos aceptables de humedad!!!") : false;
+		ledFalla();
+		beep(1);
+	}
 	
 
 	debug ? Serial.print("Estado de MQTT: ") : false;
@@ -978,14 +1019,12 @@ bool leerTemperatura() {
 		topHum3.toCharArray(humed3, topHum3.length() + 1);
 		client.publish(humed3, h3String);
 
-		h_avg = (h1 + h2 + h3) / 3;
 		char HString[8];
 		dtostrf(h_avg, 1, 2, HString);
 		char humed[TopAvgHum.length() + 1];
 		TopAvgHum.toCharArray(humed, TopAvgHum.length() + 1);
 		clientGlobal.publish(humed, HString);
 
-		t_avg = (t1+t2+t3)/3;
 		char TString[8];
 		dtostrf(t_avg, 1, 2, TString);
 		char temper[TopAvgTemp.length() + 1];
@@ -1179,4 +1218,16 @@ void intro() {
 	debug ? Serial.println("mrodriguez@ciatec.mx") : false;
 	Serial.println("\n\n\n");
 	delay(2000);
+}
+
+String display_a_JSON(int indice) {
+
+	String json;
+	StaticJsonDocument <1024> charola;
+	charola["id"] = indice + 1;
+	charola["nombre"] = nombre[indice];
+	charola["precio"] = menudeo[indice];
+	serializeJson(charola, json);
+	debug ? Serial.println("Cadena a enviar a display: " + json) : false;
+	return json;
 }
