@@ -2,7 +2,8 @@
  Name:		_02SCH_PrecioVit.ino
  Created:	7/29/2020 9:17:35 PM
  Author:	mrodriguez
- Programa para despliegue de pracios en Vitrinas SUCAHERSA
+ Programa para obtener datos de ambiente 
+ en Vitrinas SUCAHERSA
 */
 
 #include <SoftwareSerial.h>
@@ -17,7 +18,7 @@
 #include <DHT.h>
 #include <LiquidCrystal_I2C.h>
 
-#define SD_CS		5						// Define CS pin para modulo SD
+#define SD_CS		5						
 #define PUERTA1		25
 #define PUERTA2		33
 #define PUERTA3		32
@@ -63,7 +64,7 @@ int h_avg, h1, h2, h3, h_max = 100, h_min = 85;                //Humedad
 float t_avg, t1, t2, t3, t_max = 2, t_min = -2;                //Temperatura
 unsigned long millis_previos_p1 = 0, millis_previos_p2 = 0, millis_previos_p3 = 0, millis_previos_p4 = 0;
 unsigned long millis_previos_precios = 0, millis_previos_activo = 0;
-int inervalo_precios = 3600000, inervalo_activo = 60000;      // Intervalos de tiempo para Millis
+int inervalo_precios = 3600000, inervalo_activo = 300000;      // Intervalos de tiempo para Millis
 
 String schAPI;
 String carniceria;
@@ -125,7 +126,7 @@ void loop() {
 	unsigned long millies_atcuales_activo = millis();
 	if (millies_atcuales_activo - millis_previos_activo > inervalo_activo) {
 		millis_previos_activo = millies_atcuales_activo;
-		debug ? Serial.println("Ha pasado un minuto!") : false;
+		debug ? Serial.println("Han pasado cinco minutos!") : false;
 		leerTemperatura();
 
 		if (!enviar_a_API(dato_a_JSON())) {
@@ -151,7 +152,6 @@ void loop() {
 	}
 
 }
-
 
 
 boolean iniciarMCU() {
@@ -763,7 +763,7 @@ String obtenerPrecio_API(String dato) {
 //				https://randomnerdtutorials.com/esp32-http-get-post-arduino/#http-get-2
 
 	boolean enviado = 0;
-	int intentos = 9;
+	int intentos = 5;
 	String response;
 	String precio;
 	String producto;
@@ -795,7 +795,7 @@ String obtenerPrecio_API(String dato) {
 			}
 			else {
 				Serial.println("Error al enviar HTTP POST api SUCAHERSA");
-				delay(500);
+				//delay(500);
 				if (intentos > 1) {
 					Serial.println("Reintentando HTTP POST");
 					delay(500);
@@ -803,10 +803,11 @@ String obtenerPrecio_API(String dato) {
 				}
 				if (intentos == 1)
 				{
-					Serial.println("Almacenando en SD");
-					iniciarMCU();
+					Serial.println("Omitiendo precios...");
+					//iniciarMCU();
 					intentos--;
 				}
+				intentos--;
 				http.end();
 			}
 		}
